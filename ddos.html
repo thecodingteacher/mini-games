@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DDoS Attack Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+        }
+        body {
+            background: #f0f2f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .title {
+            font-size: 24px;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .simulation {
+            height: 300px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            position: relative;
+            background: #f8f9fa;
+            margin-bottom: 20px;
+        }
+        .server {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 60px;
+            background: #4a90e2;
+            border-radius: 8px;
+        }
+        .packet {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: red;
+            transition: top 0.05s linear;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .metric-card {
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .controls-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        .btn-start {
+            background: #4caf50;
+            color: white;
+        }
+        .btn-stop {
+            background: #f44336;
+            color: white;
+        }
+        .btn-reset {
+            background: #2196f3;
+            color: white;
+        }
+        .mitigation-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        .mitigation-control {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .tutorial {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .chart-container {
+            height: 300px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">DDoS Attack Simulation</h1>
+            <p class="subtitle">Learn about DDoS attacks and mitigation strategies</p>
+        </div>
+
+        <div class="tutorial" id="tutorial">
+            <h2>How to Use This Simulator</h2>
+            <p>1. Enable protection measures in the Mitigation Controls section</p>
+            <p>2. Start the attack simulation to see the impact</p>
+            <p>3. Monitor server health and response metrics</p>
+            <p>4. Try different combinations of protection measures</p>
+            <button onclick="document.getElementById('tutorial').style.display='none'">Got it!</button>
+        </div>
+
+        <div class="controls-section">
+            <h3>Simulation Controls</h3>
+            <div class="controls">
+                <div>
+                    <button id="startBtn" class="btn-start">Start Attack</button>
+                    <button id="resetBtn" class="btn-reset">Reset</button>
+                </div>
+                <div>
+                    <label>Attack Intensity: <span id="intensityValue">0</span>%</label>
+                    <input type="range" id="intensitySlider" min="0" max="100" value="0">
+                </div>
+            </div>
+        </div>
+
+        <div class="metrics">
+            <div class="metric-card">
+                <h3>Server Health</h3>
+                <div class="metric-value" id="serverHealth">100%</div>
+            </div>
+            <div class="metric-card">
+                <h3>Response Time</h3>
+                <div class="metric-value" id="responseTime">100ms</div>
+            </div>
+            <div class="metric-card">
+                <h3>Bandwidth</h3>
+                <div class="metric-value" id="bandwidth">100%</div>
+            </div>
+        </div>
+
+        <div class="simulation" id="simulation">
+            <div class="server" id="server"></div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="metricsChart"></canvas>
+        </div>
+
+        <div class="controls-section">
+            <h3>Mitigation Controls</h3>
+            <div class="mitigation-controls">
+                <div class="mitigation-control">
+                    <span>WAF Protection</span>
+                    <label class="switch">
+                        <input type="checkbox" id="wafToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="mitigation-control">
+                    <span>Rate Limiting</span>
+                    <label class="switch">
+                        <input type="checkbox" id="rateLimitToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="mitigation-control">
+                    <span>DDoS Protection</span>
+                    <label class="switch">
+                        <input type="checkbox" id="ddosToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="mitigation-control">
+                    <span>SSL/TLS</span>
+                    <label class="switch">
+                        <input type="checkbox" id="sslToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isRunning = false;
+        let packets = [];
+        let serverHealth = 100;
+        let responseTime = 100;
+        let bandwidth = 100;
+        let chart;
+
+        // Initialize Chart.js
+        const ctx = document.getElementById('metricsChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Server Health',
+                    data: [],
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                }, {
+                    label: 'Response Time',
+                    data: [],
+                    borderColor: 'rgb(255, 99, 132)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // Event Listeners
+        document.getElementById('startBtn').addEventListener('click', toggleSimulation);
+        document.getElementById('resetBtn').addEventListener('click', resetSimulation);
+        document.getElementById('intensitySlider').addEventListener('input', updateIntensity);
+
+        function toggleSimulation() {
+            isRunning = !isRunning;
+            const btn = document.getElementById('startBtn');
+            btn.textContent = isRunning ? 'Stop Attack' : 'Start Attack';
+            btn.className = isRunning ? 'btn-stop' : 'btn-start';
+            
+            if (isRunning) {
+                runSimulation();
+            }
+        }
+
+        function calculateProtectionLevel() {
+            const controls = ['waf', 'rateLimit', 'ddos', 'ssl'];
+            const enabled = controls.filter(c => 
+                document.getElementById(`${c}Toggle`).checked
+            ).length;
+            return enabled / controls.length;
+        }
+
+        function runSimulation() {
+            if (!isRunning) return;
+
+            const intensity = parseInt(document.getElementById('intensitySlider').value);
+            const protection = calculateProtectionLevel();
+            
+            // Generate packets
+            const packetCount = Math.floor((intensity * (1 - protection)) / 10) + 1;
+            for (let i = 0; i < packetCount; i++) {
+                createPacket();
+            }
+
+            // Update metrics
+            const impact = (intensity * (1 - protection)) / 100;
+            serverHealth = Math.max(0, serverHealth - impact);
+            responseTime = Math.min(2000, responseTime + impact * 10);
+            bandwidth = Math.max(0, bandwidth - impact * 2);
+
+            updateMetrics();
+            updateChart();
+
+            // Move packets
+            movePackets();
+
+            requestAnimationFrame(runSimulation);
+        }
+
+        function createPacket() {
+            const packet = document.createElement('div');
+            packet.className = 'packet';
+            packet.style.left = Math.random() * 90 + 5 + '%';
+            packet.style.top = '90%';
+            document.getElementById('simulation').appendChild(packet);
+            packets.push(packet);
+        }
+
+        function movePackets() {
+            packets = packets.filter(packet => {
+                const currentTop = parseFloat(packet.style.top);
+                if (currentTop <= 0) {
+                    packet.remove();
+                    return false;
+                }
+                packet.style.top = (currentTop - 1) + '%';
+                return true;
+            });
+        }
+
+        function updateMetrics() {
+            document.getElementById('serverHealth').textContent = Math.round(serverHealth) + '%';
+            document.getElementById('responseTime').textContent = Math.round(responseTime) + 'ms';
+            document.getElementById('bandwidth').textContent = Math.round(bandwidth) + '%';
+
+            const server = document.getElementById('server');
+            server.style.backgroundColor = serverHealth < 30 ? '#f44336' : 
+                                         serverHealth < 60 ? '#ff9800' : '#4a90e2';
+        }
+
+        function updateChart() {
+            const time = new Date().toLocaleTimeString();
+            chart.data.labels.push(time);
+            chart.data.datasets[0].data.push(serverHealth);
+            chart.data.datasets[1].data.push(responseTime);
+
+            if (chart.data.labels.length > 20) {
+                chart.data.labels.shift();
+                chart.data.datasets.forEach(dataset => dataset.data.shift());
+            }
+
+            chart.update();
+        }
+
+        function updateIntensity(e) {
+            document.getElementById('intensityValue').textContent = e.target.value;
+        }
+
+        function resetSimulation() {
+            isRunning = false;
+            document.getElementById('startBtn').textContent = 'Start Attack';
+            document.getElementById('startBtn').className = 'btn-start';
+            document.getElementById('intensitySlider').value = 0;
+            document.getElementById('intensityValue').textContent = '0';
+            
+            packets.forEach(packet => packet.remove());
+            packets = [];
+            serverHealth = 100;
+            responseTime = 100;
+            bandwidth = 100;
+            
+            updateMetrics();
+            
+            chart.data.labels = [];
+            chart.data.datasets.forEach(dataset => dataset.data = []);
+            chart.update();
+        }
+    </script>
+</body>
+</html>
